@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        #video {
+            width: 100%;
+            max-width: 600px;
+            border: 2px solid #ccc;
+        }
+        #emotion {
+            font-size: 24px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Emotion Detection</h1>
+    <video id="video" autoplay></video>
+    <div id="emotion">Waiting for prediction...</div>
+    
+    <script>
+        const video = document.getElementById('video');
+        const emotionElement = document.getElementById('emotion');
+
+        // Start video stream from webcam
+        async function startVideo() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (error) {
+                console.error('Error accessing webcam:', error);
+                alert('Unable to access webcam. Please check permissions.');
+            }
+        }
+
+        // Capture frame and send it to backend for prediction
+        async function captureFrame() {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+
+            // Draw the image from the webcam feed to the canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert canvas to blob to send to backend
+            const imageBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+            const formData = new FormData();
+            formData.append('image', imageBlob);
+
+            // Send the image to backend
+            try {
+                const response = await fetch('http://127.0.0.1:5000/predict', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    emotionElement.textContent = data.emotion;
+                } else {
+                    emotionElement.textContent = 'Error in prediction.';
+                }
+            } catch (error) {
+                console.error('Error connecting to backend:', error);
+                emotionElement.textContent = 'Server connection failed.';
+            }
+        }
+
+        // Start the video and capture frames at regular intervals
+        startVideo();
+        setInterval(captureFrame, 1000);  // Capture frame every 1 second
+    </script>
+</body>
+</html>
